@@ -1,0 +1,350 @@
+import React, { useEffect, useState } from "react";
+
+function App() {
+  const [foods, setFoods] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [orders, setOrders] = useState([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+
+  const [user, setUser] = useState(null);
+  const [isSignup, setIsSignup] = useState(false);
+
+  // 🍛 Load foods
+  useEffect(() => {
+    fetch("/api/foods")
+      .then(res => res.json())
+      .then(data => setFoods(data));
+  }, []);
+
+  // 🛒 Add to cart
+  const addToCart = (food) => {
+    const existing = cart.find(item => item.id === food.id);
+
+    if (existing) {
+      const updated = cart.map(item =>
+        item.id === food.id
+          ? { ...item, qty: item.qty + 1 }
+          : item
+      );
+      setCart(updated);
+    } else {
+      setCart([...cart, { ...food, qty: 1 }]);
+    }
+
+    setTotal(prev => prev + food.price);
+  };
+
+  // ➕
+  const increaseQty = (id) => {
+    const item = cart.find(i => i.id === id);
+    const updated = cart.map(i =>
+      i.id === id ? { ...i, qty: i.qty + 1 } : i
+    );
+    setCart(updated);
+    setTotal(prev => prev + item.price);
+  };
+
+  // ➖
+  const decreaseQty = (id) => {
+    const item = cart.find(i => i.id === id);
+
+    if (item.qty === 1) {
+      removeItem(id);
+    } else {
+      const updated = cart.map(i =>
+        i.id === id ? { ...i, qty: i.qty - 1 } : i
+      );
+      setCart(updated);
+      setTotal(prev => prev - item.price);
+    }
+  };
+
+  // ❌
+  const removeItem = (id) => {
+    const item = cart.find(i => i.id === id);
+    const updated = cart.filter(i => i.id !== id);
+
+    setCart(updated);
+    setTotal(prev => prev - item.price * item.qty);
+  };
+const fetchOrders = (userId) => {
+    fetch(`/api/order/${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        console.log("ORDERS:", data);
+        setOrders(data);
+      });
+  };
+
+
+  // 🔐 Login
+  const handleLogin = () => {
+    fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.id) {
+          setUser(data);
+          fetchOrders(data.id);
+        } else {
+          alert("Invalid login");
+        }
+      });
+  };
+
+  // 🧾 Signup
+  const handleSignup = () => {
+    fetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password
+      })
+    })
+      .then(res => res.text())
+      .then(msg => {
+        alert(msg);
+        setIsSignup(false);
+      });
+  };
+
+  // 💳 Order
+  const placeOrder = () => {
+    fetch("/api/order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        cart,
+        total
+      })
+    })
+      .then(res => res.text())
+      .then(msg => {
+        alert(msg);
+        setCart([]);
+        setTotal(0);
+      });
+  };
+
+  const inputStyle = {
+    padding: "10px",
+    margin: "5px",
+    width: "200px",
+    borderRadius: "5px",
+    border: "1px solid #ccc"
+  };
+
+  const buttonStyle = {
+    padding: "10px 20px",
+    backgroundColor: "#ff6b6b",
+    color: "#fff",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+    marginTop: "10px"
+  };
+
+  return (
+    <div style={{
+      textAlign: "center",
+      padding: "20px",
+      backgroundColor: "#f8f9fa",
+      minHeight: "100vh"
+    }}>
+
+      <h1 style={{ color: "#ff6b6b" }}>🍽️ Indian Restaurant</h1>
+
+      {/* 🔐 LOGIN / SIGNUP */}
+      {!user && (
+        <div style={{ marginBottom: "30px" }}>
+          <h2>{isSignup ? "Signup" : "Login"}</h2>
+
+          {isSignup && (
+            <input
+              placeholder="Name"
+              onChange={(e) => setName(e.target.value)}
+              style={inputStyle}
+            />
+          )}
+
+          <input
+            placeholder="Email"
+            onChange={(e) => setEmail(e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
+
+          <br />
+
+          <button
+            onClick={isSignup ? handleSignup : handleLogin}
+            style={buttonStyle}
+          >
+            {isSignup ? "Signup" : "Login"}
+          </button>
+
+          <br />
+
+          <button
+            onClick={() => setIsSignup(!isSignup)}
+            style={{ ...buttonStyle, backgroundColor: "#ffa502" }}
+          >
+            {isSignup ? "Go to Login" : "Create Account"}
+          </button>
+        </div>
+      )}
+
+      {user && (
+  <button
+    onClick={() => {
+      setUser(null);
+      setCart([]);
+      setTotal(0);
+    }}
+    style={{
+      padding: "8px 15px",
+      backgroundColor: "black",
+      color: "#fff",
+      border: "none",
+      borderRadius: "5px",
+      cursor: "pointer",
+      marginBottom: "20px"
+    }}
+  >
+    Logout
+  </button>
+)}
+
+      {/* 🍛 MENU */}
+      <h2>Menu</h2>
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+        gap: "20px",
+        padding: "20px"
+      }}>
+        {foods.map(food => (
+          <div key={food.id} style={{
+            border: "1px solid #ddd",
+            borderRadius: "10px",
+            padding: "15px",
+            backgroundColor: "#fff",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
+          }}>
+            <img
+              src={food.image}
+              alt={food.name}
+              style={{
+                width: "100%",
+                height: "150px",
+                objectFit: "cover",
+                borderRadius: "10px"
+              }}
+            />
+
+            <h3>{food.name}</h3>
+            <p>₹{food.price}</p>
+
+            <button
+              onClick={() => {
+                if (!user) {
+                  alert("Please login first");
+                  return;
+                }
+                addToCart(food);
+              }}
+              style={buttonStyle}
+            >
+              Add to Cart
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* 🛒 CART */}
+      <h2>Cart</h2>
+
+      <div style={{
+        maxWidth: "400px",
+        margin: "auto",
+        background: "#fff",
+        padding: "15px",
+        borderRadius: "10px"
+      }}>
+        {cart.length === 0 && <p>No items</p>}
+
+        {cart.map(item => (
+          <div key={item.id} style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "10px"
+          }}>
+            <span>{item.name}</span>
+
+            <div>
+              <button onClick={() => decreaseQty(item.id)}>-</button>
+              <span style={{ margin: "0 10px" }}>{item.qty}</span>
+              <button onClick={() => increaseQty(item.id)}>+</button>
+            </div>
+
+            <span>₹{item.price * item.qty}</span>
+
+            <button onClick={() => removeItem(item.id)}>❌</button>
+          </div>
+        ))}
+
+        <hr />
+
+        <h3>Total: ₹{total}</h3>
+
+        {user && cart.length > 0 && (
+          <button onClick={placeOrder} style={buttonStyle}>
+            Checkout
+          </button>
+        )}
+      </div>
+
+    </div>
+
+{/* 📜 ORDER HISTORY */}
+{user && (
+  <div style={{ marginTop: "40px" }}>
+    <h2>Order History</h2>
+
+    {orders.length === 0 && <p>No orders yet</p>}
+
+    {orders.map((o, i) => (
+      <div key={i}>
+        Order #{o.order_id} - {o.food_name} x{o.quantity} (₹{o.total})
+      </div>
+    ))}
+  </div>
+)}
+
+  );
+}
+
+export default App;
